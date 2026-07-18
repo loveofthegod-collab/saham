@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Dashboard Analisis Performa Saham - Pro+</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap');
+
+        :root {
+            --bg: #f1f5f9; --text: #1e293b; --text-secondary: #475569;
+            --card: rgba(255, 255, 255, 0.85); --card-solid: #ffffff;
+            --card2: rgba(248, 250, 252, 0.9); --border: rgba(203, 213, 225, 0.5);
+            --input-bg: rgba(241, 245, 249, 0.8); --input-text: #1e293b;
+            --chip-bg: rgba(226, 232, 240, 0.8); --chip-text: #334155;
+            --accent: #38bdf8; --accent-glow: rgba(56, 189, 248, 0.3);
+            --accent-text: #0f172a; --value-card-bg: rgba(248, 250, 252, 0.9);
+            --positive: #10b981; --positive-glow: rgba(16, 185, 129, 0.25);
+            --negative: #ef4444; --negative-glow: rgba(239, 68, 68, 0.25);
+            --table-stripe: rgba(248, 250, 252, 0.6); --toggle-bg: rgba(203, 213, 225, 0.6);
+            --section-shadow: 0 4px 20px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0,0,0,0.03);
+            --neon-green: #00ff9d; --neon-cyan: #00f0ff; --glass-border: rgba(255, 255, 255, 0.3);
+        }
+
+        body.dark-mode {
+            --bg: #0b1120; --text: #f1f5f9; --text-secondary: #94a3b8;
+            --card: rgba(30, 41, 59, 0.7); --card-solid: #1e293b; --card2: rgba(15, 23, 42, 0.8);
+            --border: rgba(51, 65, 85, 0.6); --input-bg: rgba(15, 23, 42, 0.8); --input-text: #f1f5f9;
+            --chip-bg: rgba(51, 65, 85, 0.6); --chip-text: #f1f5f9; --accent: #38bdf8;
+            --accent-glow: rgba(56, 189, 248, 0.4); --accent-text: #0f172a;
+            --value-card-bg: rgba(15, 23, 42, 0.6); --positive: #34d399;
+            --positive-glow: rgba(52, 211, 153, 0.3); --negative: #f87171;
+            --negative-glow: rgba(248, 113, 113, 0.3); --table-stripe: rgba(30, 41, 59, 0.4);
+            --toggle-bg: rgba(51, 65, 85, 0.8); --section-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255,255,255,0.05);
+            --glass-border: rgba(255, 255, 255, 0.08);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body {
+            background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            padding: 12px; transition: background 0.4s, color 0.4s; min-height: 100vh; overflow-x: hidden;
+        }
+        body::before {
+            content: ''; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at 50% 50%, rgba(56, 189, 248, 0.06) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 20%, rgba(139, 92, 246, 0.04) 0%, transparent 40%),
+                        radial-gradient(circle at 20% 80%, rgba(16, 185, 129, 0.03) 0%, transparent 40%);
+            z-index: -1; pointer-events: none;
+        }
+
+        .container { max-width: 1400px; margin: 0 auto; }
+        
+        /* --- WIDGETS (JAM & CUACA) --- */
+        .widget-bar { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+        @media (max-width: 768px) { .widget-bar { grid-template-columns: 1fr; } }
+        .widget-card {
+            background: var(--card); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+            border: 1px solid var(--glass-border); border-radius: 20px; padding: 20px;
+            box-shadow: var(--section-shadow), 0 0 12px var(--accent-glow); position: relative; overflow: hidden;
+        }
+        .widget-card::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent); opacity: 0.6;
+        }
+        .clock-container { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .clock-display { display: flex; align-items: center; gap: 8px; font-family: 'JetBrains Mono', monospace; }
+        .clock-box {
+            background: linear-gradient(145deg, rgba(15,23,42,0.9), rgba(30,41,59,0.95));
+            border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 12px; padding: 10px 14px; min-width: 60px; text-align: center;
+            box-shadow: 0 0 8px rgba(56, 189, 248, 0.12);
+        }
+        .clock-box .num { font-size: 2rem; font-weight: 700; color: var(--neon-green); text-shadow: 0 0 10px rgba(0, 255, 157, 0.4), 0 0 20px rgba(0, 255, 157, 0.2); line-height: 1; }
+        .clock-box .label { font-size: 0.6rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+        .clock-separator { font-size: 1.8rem; color: var(--accent); font-weight: 700; animation: blink 1s infinite; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+        .clock-date { margin-top: 10px; font-size: 0.85rem; color: var(--text-secondary); letter-spacing: 1px; text-transform: uppercase; }
+        
+        .weather-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .weather-title { font-size: 0.9rem; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 8px; }
+        .weather-title i { color: var(--accent); }
+        .btn-unlock { background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 6px 14px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; cursor: pointer; box-shadow: 0 0 15px rgba(16, 185, 129, 0.3); }
+        .weather-body { display: flex; align-items: center; gap: 16px; }
+        .weather-icon-main { font-size: 3rem; color: var(--accent); filter: drop-shadow(0 0 10px var(--accent-glow)); }
+        .weather-temp { font-size: 2.5rem; font-weight: 700; line-height: 1; }
+        .weather-condition { font-size: 1rem; font-weight: 600; margin-bottom: 4px; }
+        .weather-detail { font-size: 0.75rem; color: var(--text-secondary); line-height: 1.6; }
+        .weather-detail i { width: 16px; text-align: center; margin-right: 4px; color: var(--accent); }
+
+        /* --- HEADERS & BUTTONS --- */
+        .header { text-align: center; margin-bottom: 20px; position: relative; padding: 20px 0; }
+        .header h1 { font-size: 1.6rem; font-weight: 800; background: linear-gradient(135deg, #fbbf24, #38bdf8, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .header p { font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px; }
+        .dark-toggle { position: absolute; right: 0; top: 50%; transform: translateY(-50%); background: linear-gradient(135deg, var(--toggle-bg), var(--card2)); border: 1px solid var(--border); color: var(--text); padding: 8px 18px; border-radius: 24px; cursor: pointer; font-size: 0.8rem; font-weight: 600; }
+        @media (max-width: 600px) { .dark-toggle { position: static; transform: none; margin-top: 10px; } .header { display: flex; flex-direction: column; align-items: center; gap: 8px; } }
+
+        .controls-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; background: var(--card); border: 1px solid var(--glass-border); padding: 16px; border-radius: 16px; margin-bottom: 18px; }
+        .control-group { display: flex; flex-direction: column; gap: 6px; }
+        .control-group label { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; }
+        select, input, button { padding: 10px 14px; border-radius: 10px; background: var(--input-bg); color: var(--input-text); border: 1px solid var(--border); font-size: 0.85rem; outline: none; transition: all 0.2s; }
+        select:focus, input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+        button { background: linear-gradient(135deg, var(--accent), #0ea5e9); color: var(--accent-text); font-weight: 700; cursor: pointer; border: none; box-shadow: 0 4px 15px var(--accent-glow); }
+        button:hover { transform: translateY(-2px); }
+
+        /* --- CHART & TABLE --- */
+        .section { background: var(--card); backdrop-filter: blur(6px); border-radius: 20px; padding: 20px; margin-bottom: 18px; border: 1px solid var(--glass-border); box-shadow: var(--section-shadow); position: relative; overflow: hidden; }
+        .section h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+        .section h3 i { color: var(--accent); font-size: 1.1rem; }
+        .section::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 3px; background: linear-gradient(90deg, #fbbf24, #38bdf8, #818cf8); opacity: 0.4; }
+        
+        .chart-container { position: relative; height: 400px; width: 100%; margin: 10px 0; }
+        
+        /* Table Controls */
+        .table-controls { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
+        .table-controls select { min-width: 180px; padding: 10px 14px; border-radius: 10px; background: var(--input-bg); color: var(--input-text); border: 1px solid var(--border); font-size: 0.85rem; }
+        .table-wrapper { overflow-x: auto; max-height: 600px; border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; min-width: 600px; }
+        thead th { position: sticky; top: 0; background: var(--card2); color: var(--text-secondary); font-weight: 700; text-align: left; padding: 12px 16px; border-bottom: 2px solid var(--border); z-index: 10; white-space: nowrap; }
+        tbody td { padding: 10px 16px; border-bottom: 1px solid var(--border); white-space: nowrap; font-weight: 600; }
+        td.sticky-col, th.sticky-col { position: sticky; left: 0; z-index: 5; }
+        th.sticky-col { z-index: 11; }
+
+        /* --- RANKING CARD --- */
+        .ranking-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 12px; margin-top: 16px; }
+        .ranking-card { background: var(--value-card-bg); border-radius: 16px; padding: 12px 16px; border: 1px solid var(--border); transition: all 0.2s; position: relative; overflow: hidden; }
+        .ranking-card:hover { transform: translateY(-2px); border-color: var(--accent); box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
+        .rank-symbol { font-weight: 800; font-size: 1rem; display: inline-flex; align-items: center; gap: 6px; }
+        .rank-percent { font-weight: 800; font-size: 1rem; }
+        .rank-date { font-size: 0.7rem; color: var(--text-secondary); margin: 6px 0; }
+        .rank-diff { font-size: 0.85rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; }
+        .ranking-info-bar { display: flex; flex-wrap: wrap; gap: 20px; background: var(--card2); border-radius: 16px; padding: 14px 20px; margin: 12px 0; border: 1px solid var(--border); justify-content: space-around; text-align: center; }
+        .ranking-info-value { font-size: 1.4rem; font-weight: 800; }
+        .ranking-info-value.up { color: var(--positive); }
+        .ranking-info-value.down { color: var(--negative); }
+        .ranking-info-value.avg { color: var(--accent); }
+        .daily-stats { display: flex; flex-wrap: wrap; justify-content: space-between; background: rgba(56, 189, 248, 0.08); border-radius: 12px; padding: 8px 10px; margin-top: 8px; font-size: 0.7rem; gap: 6px; }
+        .daily-stat-value { font-weight: 700; color: var(--text); }
+
+        /* --- SEARCH & PRINT OVERLAY --- */
+        .hamburger-btn { position: fixed; top: 16px; right: 16px; z-index: 1001; width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg, var(--accent), #0ea5e9); border: none; color: var(--accent-text); font-size: 1.2rem; cursor: pointer; box-shadow: 0 4px 15px var(--accent-glow); display: flex; align-items: center; justify-content: center; transition: all 0.3s; }
+        .hamburger-btn.active { background: linear-gradient(135deg, var(--negative), #dc2626); }
+        .search-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); z-index: 1000; display: none; align-items: flex-start; justify-content: center; padding-top: 80px; opacity: 0; transition: opacity 0.3s; }
+        .search-overlay.active { display: flex; opacity: 1; }
+        .search-box { background: var(--card-solid); border: 1px solid var(--border); border-radius: 20px; padding: 24px; width: 90%; max-width: 600px; max-height: 80vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+        .search-input-wrapper { position: relative; margin-bottom: 16px; }
+        .search-input-wrapper i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); }
+        .search-input { width: 100%; padding: 14px 14px 14px 44px; border-radius: 12px; border: 2px solid var(--border); background: var(--input-bg); color: var(--input-text); font-size: 1rem; font-family: 'Inter', sans-serif; outline: none; }
+        .search-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+        .search-results { display: none; }
+        .search-results.active { display: block; }
+        .search-result-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; cursor: pointer; transition: all 0.2s; margin-bottom: 4px; text-decoration: none; color: var(--text); }
+        .search-result-item:hover { background: var(--card2); transform: translateX(4px); }
+        .search-result-item i { width: 24px; text-align: center; color: var(--accent); }
+        .search-result-item .sr-sym { font-weight: 800; font-size: 0.95rem; min-width: 60px; }
+        
+        /* PRINT MODAL */
+        .print-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); z-index: 1002; display: none; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s; }
+        .print-overlay.active { display: flex; opacity: 1; }
+        .print-modal { background: var(--card-solid); border: 1px solid var(--border); border-radius: 20px; padding: 28px; width: 90%; max-width: 700px; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+        .print-actions { display: flex; gap: 10px; margin-top: 24px; justify-content: flex-end; }
+        .print-actions button { padding: 10px 24px; border-radius: 10px; font-size: 0.9rem; font-weight: 700; cursor: pointer; border: none; }
+        .print-actions .btn-cancel { background: var(--card2); color: var(--text); border: 1px solid var(--border); }
+        .print-actions .btn-export { background: linear-gradient(135deg, #f59e0b, #d97706); color: white; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.35); }
+        .print-actions .btn-export-png { background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; box-shadow: 0 4px 15px rgba(139, 92, 246, 0.35); }
+        #exportProgressOverlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(6px); z-index: 9999; display: none; align-items: center; justify-content: center; flex-direction: column; color: #fff; gap: 16px; font-size: 1.1rem; font-weight: 600; }
+        #exportProgressOverlay.active { display: flex; }
+        .exp-spinner { font-size: 2.5rem; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        @media print { .hamburger-btn, .dark-toggle, .search-overlay, .print-overlay, .btn-unlock, .controls-grid, .print-actions { display: none !important; } }
+
+        @media (max-width: 600px) { 
+            .controls-grid { grid-template-columns: 1fr; } 
+            .clock-box .num { font-size: 1.5rem; }
+            .hamburger-btn { top: 10px; right: 10px; width: 40px; height: 40px; }
+            .ranking-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body class="dark-mode">
+
+    <!-- HAMBURGER MENU -->
+    <button class="hamburger-btn" id="hamburgerBtn"><i class="fas fa-bars"></i></button>
+
+    <!-- SEARCH OVERLAY -->
+    <div class="search-overlay" id="searchOverlay">
+        <div class="search-box">
+            <div class="search-input-wrapper">
+                <i class="fas fa-search"></i>
+                <input type="text" class="search-input" id="searchInput" placeholder="Cari saham (contoh: BBCA)..." autocomplete="off">
+                <button id="searchPrintBtn" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: linear-gradient(135deg, var(--accent), #0ea5e9); border: none; border-radius: 8px; padding: 8px 14px; color: white; cursor: pointer; font-size: 0.8rem; font-weight: 600;">
+                    <i class="fas fa-print"></i> Print
+                </button>
+            </div>
+            <div class="search-results" id="searchResults">
+                <div class="search-no-results" id="searchNoResults" style="display:none;"><i class="fas fa-search" style="font-size:2rem;display:block;margin-bottom:12px;"></i> Tidak ditemukan saham dengan kata kunci tersebut.</div>
+                <div id="searchResultsContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PRINT OVERLAY (CLEAN VERSION) -->
+    <div class="print-overlay" id="printOverlay">
+        <div class="print-modal">
+            <h3><i class="fas fa-file-image"></i> Export Report (JPG / PNG)</h3>
+            <div class="print-section" style="padding: 14px; background: var(--card2); border-radius: 12px; border: 1px solid var(--border); margin-bottom: 16px;">
+                <div class="print-section-title" style="font-weight: 700; margin-bottom: 10px;"><i class="fas fa-chart-line"></i> Pilih Saham untuk Diexport</div>
+                <div class="print-stock-grid" id="printStockGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px;"></div>
+                <div style="margin-top:10px; font-size:0.75rem; color:var(--text-secondary);">
+                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                        <input type="checkbox" id="printSelectAll" onchange="togglePrintSelectAll()"> <span>Pilih Semua Saham (Default)</span>
+                    </label>
+                </div>
+            </div>
+            <div class="print-section" style="padding: 14px; background: var(--card2); border-radius: 12px; border: 1px solid var(--border); margin-bottom: 16px;">
+                <div class="print-section-title" style="font-weight: 700; margin-bottom: 10px;"><i class="fas fa-chart-area"></i> Mode Grafik (Nominal vs Indexed)</div>
+                <div class="print-chart-mode" style="display: flex; gap: 10px;">
+                    <label style="display: flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 8px; background: var(--card); border: 2px solid var(--border); cursor: pointer; font-size: 0.85rem; font-weight: 600;">
+                        <input type="radio" name="printChartMode" value="nominal" checked> <span>Nominal</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 8px; background: var(--card); border: 2px solid var(--border); cursor: pointer; font-size: 0.85rem; font-weight: 600;">
+                        <input type="radio" name="printChartMode" value="indexed"> <span>Indexed = 100</span>
+                    </label>
+                </div>
+            </div>
+            <div class="print-actions">
+                <button class="btn-cancel" onclick="closePrintModal()">Batal</button>
+                <button class="btn-export" onclick="executeExportImage('jpg')"><i class="fas fa-file-image"></i> Export JPG</button>
+                <button class="btn-export-png" onclick="executeExportImage('png')"><i class="fas fa-image"></i> Export PNG</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="exportProgressOverlay">
+        <div class="exp-spinner"><i class="fas fa-cog"></i></div>
+        <div id="exportProgressText">Mempersiapkan ekspor...</div>
+    </div>
+
+    <div class="container" id="mainContainer">
+        
+        <!-- ===== WIDGET BAR ===== -->
+        <div class="widget-bar">
+            <div class="widget-card clock-container">
+                <div class="clock-display">
+                    <div class="clock-box"><div class="num" id="clockHour">00</div><div class="label">Jam</div></div>
+                    <div class="clock-separator">:</div>
+                    <div class="clock-box"><div class="num" id="clockMin">00</div><div class="label">Menit</div></div>
+                    <div class="clock-separator">:</div>
+                    <div class="clock-box"><div class="num" id="clockSec">00</div><div class="label">Detik</div></div>
+                </div>
+                <div class="clock-date" id="clockDate">Memuat...</div>
+            </div>
+            <div class="widget-card weather-container">
+                <div class="weather-header">
+                    <div class="weather-title"><i class="fas fa-cloud-sun"></i><span>Cuaca Lokasi Anda</span></div>
+                    <button class="btn-unlock" id="weatherUnlock" onclick="requestWeather()"><i class="fas fa-lock"></i> Unlock</button>
+                </div>
+                <div class="weather-body" id="weatherBody">
+                    <div class="weather-loading"><i class="fas fa-lock" style="font-size: 1.5rem; margin-bottom: 8px; display: block;"></i> Klik "Unlock" untuk deteksi cuaca</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== HEADER ===== -->
+        <div class="header">
+            <h1><i class="fas fa-chart-line"></i> IDX Bank · Live Dashboard</h1>
+            <p>Real-time Market Intelligence & Portfolio Analytics</p>
+            <button class="dark-toggle" id="darkToggle"><i class="fas fa-sun"></i> Light</button>
+        </div>
+
+        <!-- ===== CONTROLS ===== -->
+        <div class="controls-grid">
+            <div class="control-group"><label><i class="fas fa-calendar-alt"></i> Mulai</label><input type="date" id="dateStart"></div>
+            <div class="control-group"><label><i class="fas fa-calendar-check"></i> Akhir</label><input type="date" id="dateEnd"></div>
+            <div class="control-group"><label><i class="fas fa-sync-alt"></i> Aksi</label><button id="btnRefresh"><i class="fas fa-sync-alt"></i> Refresh</button></div>
+            <div class="control-group"><label><i class="fas fa-print"></i> Cetak</label><button id="printReportBtn"><i class="fas fa-print"></i> Cetak Report</button></div>
+        </div>
+
+        <!-- ===== CHART ===== -->
+        <div class="section" id="sectionChart">
+            <h3><i class="fas fa-chart-line"></i> 📊 Grafik Compare</h3>
+            <div class="chart-container"><canvas id="financeCompareChart"></canvas></div>
+        </div>
+
+        <!-- ===== HISTORICAL DATA ===== -->
+        <div class="section" id="sectionHistorical">
+            <h3><i class="fas fa-history"></i> 📋 Data Historis & Tabel Warna</h3>
+            <div class="table-controls">
+                <select id="histSortMode" style="min-width:180px;">
+                    <option value="date_desc">Urut: Tanggal Terbaru ↓</option>
+                    <option value="date_asc">Urut: Tanggal Terlama ↑</option>
+                    <option value="price_desc">Urut: Harga Tertinggi ↓</option>
+                    <option value="price_asc">Urut: Harga Terendah ↑</option>
+                </select>
+                <select id="histSortSymbol" style="min-width:140px; display:none;"></select>
+                <button id="filterTable"><i class="fas fa-filter"></i> Filter</button>
+                <button id="resetTable"><i class="fas fa-undo"></i> Reset</button>
+            </div>
+            <div class="table-wrapper" id="dataTableWrapper">
+                <table id="stockTable">
+                    <thead><tr id="tableHeader"><th class="sticky-col">Tanggal</th></tr></thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ===== RANKING SECTION ===== -->
+        <div class="section" id="sectionRanking">
+            <h3><i class="fas fa-chart-simple"></i> 🏆 Index Ranking Semua Saham Bank</h3>
+            <div class="table-controls">
+                <div class="control-group"><label><i class="fas fa-calendar-alt"></i> Mulai</label><input type="date" id="rankStartDate"></div>
+                <div class="control-group"><label><i class="fas fa-calendar-check"></i> Akhir</label><input type="date" id="rankEndDate"></div>
+                <button id="applyRankingBtn"><i class="fas fa-chart-line"></i> Update Ranking</button>
+            </div>
+            <div id="rankingInfoBar" class="ranking-info-bar" style="display: none;">
+                <div class="ranking-info-item"><div class="ranking-info-label"><i class="fas fa-arrow-up"></i> Naik</div><div class="ranking-info-value up" id="rankUpCount">0</div></div>
+                <div class="ranking-info-item"><div class="ranking-info-label"><i class="fas fa-arrow-down"></i> Turun</div><div class="ranking-info-value down" id="rankDownCount">0</div></div>
+                <div class="ranking-info-item"><div class="ranking-info-label"><i class="fas fa-chart-line"></i> Rata-rata Return</div><div class="ranking-info-value avg" id="rankAvgReturn">0%</div></div>
+            </div>
+            <div id="rankingContainer" class="ranking-grid"><div style="padding:20px; text-align:center; color:var(--text-secondary);"><i class="fas fa-spinner fa-pulse"></i> Memuat index ranking...</div></div>
+        </div>
+
+        <footer style="text-align: center; font-size: 0.7rem; opacity: 0.6; padding: 30px 20px; color: var(--text); margin-top: 20px;">
+            Dashboard Pro+ · Built with <i class="fas fa-heart" style="color:var(--negative);"></i>
+        </footer>
+    </div>
+
+    <script>
+        // ======================= DIGITAL CLOCK =======================
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('clockHour').textContent = String(now.getHours()).padStart(2, '0');
+            document.getElementById('clockMin').textContent = String(now.getMinutes()).padStart(2, '0');
+            document.getElementById('clockSec').textContent = String(now.getSeconds()).padStart(2, '0');
+            document.getElementById('clockDate').textContent = now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).toUpperCase();
+        }
+        updateClock(); setInterval(updateClock, 1000);
+
+        // ======================= WEATHER =======================
+        function getWeatherIcon(code) {
+            if (code === 0) return '<i class="fas fa-sun weather-icon-main" style="color: #fbbf24;"></i>';
+            if (code >= 1 && code <= 3) return '<i class="fas fa-cloud-sun weather-icon-main" style="color: #38bdf8;"></i>';
+            if (code >= 45 && code <= 48) return '<i class="fas fa-smog weather-icon-main" style="color: #94a3b8;"></i>';
+            if (code >= 51 && code <= 55) return '<i class="fas fa-cloud-rain weather-icon-main" style="color: #60a5fa;"></i>';
+            if (code >= 61 && code <= 67) return '<i class="fas fa-cloud-showers-heavy weather-icon-main" style="color: #3b82f6;"></i>';
+            if (code >= 71 && code <= 77) return '<i class="fas fa-snowflake weather-icon-main" style="color: #e2e8f0;"></i>';
+            if (code >= 80 && code <= 82) return '<i class="fas fa-cloud-rain weather-icon-main" style="color: #60a5fa;"></i>';
+            if (code >= 95 && code <= 99) return '<i class="fas fa-bolt weather-icon-main" style="color: #fbbf24;"></i>';
+            return '<i class="fas fa-cloud weather-icon-main"></i>';
+        }
+        async function fetchWeather(lat, lon, locationName = 'Lokasi Anda') {
+            try {
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code&timezone=auto`;
+                const data = await (await fetch(url)).json();
+                const current = data.current;
+                document.getElementById('weatherBody').innerHTML = `
+                    <div style="display:flex; align-items:center; gap:16px; width:100%;">
+                        <div>${getWeatherIcon(current.weather_code)}</div>
+                        <div style="flex:1;">
+                            <div class="weather-temp">${Math.round(current.temperature_2m)}°C</div>
+                            <div class="weather-condition">${['Cerah','Cerah Berawan','Berawan','Mendung'][current.weather_code] || 'Tidak Diketahui'}</div>
+                            <div class="weather-detail"><div><i class="fas fa-tint"></i> Kelembaban: ${current.relative_humidity_2m}%</div></div>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('weatherUnlock').innerHTML = '<i class="fas fa-sync-alt"></i> Refresh';
+            } catch(e) { document.getElementById('weatherBody').innerHTML = '<div class="weather-loading"><i class="fas fa-exclamation-triangle" style="color:var(--negative);"></i>Gagal memuat cuaca</div>'; }
+        }
+        window.requestWeather = function() {
+            if (!navigator.geolocation) fetchWeather(-6.2088, 106.8456, 'Jakarta');
+            else navigator.geolocation.getCurrentPosition(
+                (pos) => fetchWeather(pos.coords.latitude, pos.coords.longitude),
+                () => fetchWeather(-6.2088, 106.8456, 'Jakarta')
+            );
+        };
+
+        // ======================= DARK / LIGHT MODE =======================
+        function applyTheme(isDark) {
+            document.body.classList.toggle('dark-mode', isDark);
+            document.getElementById('darkToggle').innerHTML = isDark ? '<i class="fas fa-sun"></i> Light' : '<i class="fas fa-moon"></i> Dark';
+            localStorage.setItem('idx-dashboard-theme', isDark ? 'dark' : 'light');
+        }
+        const savedTheme = localStorage.getItem('idx-dashboard-theme');
+        applyTheme(savedTheme === null ? true : savedTheme === 'dark');
+        document.getElementById('darkToggle').addEventListener('click', () => applyTheme(!document.body.classList.contains('dark-mode')));
+
+        // ======================= FORMAT =======================
+        function formatRupiah(angka) {
+            if (angka === null || angka === undefined || isNaN(angka)) return '-';
+            return 'Rp' + Math.round(angka).toLocaleString('id-ID');
+        }
+
+        // ======================= DATA LOADER =======================
+        let myChart = null;
+        let masterData = { history: [], tickers: [] };
+        
+        async function loadDashboardData() {
+            try {
+                const response = await fetch('data.json');
+                const data = await response.json();
+                masterData = data;
+                initApp();
+            } catch (error) {
+                console.error(error);
+                document.querySelector('.container').innerHTML = `<div style="text-align:center; padding: 40px;"><h2 style="color:#d93025;">Gagal Memuat Data Finansial</h2><p>Pastikan file data.json ada di folder yang sama.</p></div>`;
+            }
+        }
+
+        // ======================= GENERATE COLORS =======================
+        function generateColumnColor(index, totalColumns, isEvenRow) {
+            const hue = (index * (360 / Math.min(totalColumns, 32))) % 360;
+            let lightness = isEvenRow ? 82 : 90; 
+            return { bg: `hsl(${hue}, 75%, ${lightness}%)`, text: '#101010' };
+        }
+
+        // ======================= CORE FUNCTIONS =======================
+        function initApp() {
+            const minDate = masterData.history[0]?.dateStr || '';
+            const maxDate = masterData.history[masterData.history.length-1]?.dateStr || '';
+            document.getElementById('dateStart').value = minDate;
+            document.getElementById('dateEnd').value = maxDate;
+            document.getElementById('rankStartDate').value = minDate;
+            document.getElementById('rankEndDate').value = maxDate;
+
+            updateAll();
+            updateHistSortOptions();
+
+            document.getElementById('btnRefresh').onclick = updateAll;
+            document.getElementById('filterTable').onclick = updateAll;
+            document.getElementById('resetTable').onclick = () => {
+                document.getElementById('dateStart').value = minDate;
+                document.getElementById('dateEnd').value = maxDate;
+                updateAll();
+            };
+            document.getElementById('applyRankingBtn').onclick = updateRanking;
+            
+            document.getElementById('histSortMode').onchange = () => {
+                toggleHistSortVisibility();
+                updateAll();
+            };
+            document.getElementById('histSortSymbol').onchange = updateAll;
+            
+            document.getElementById('printReportBtn').onclick = openPrintModal;
+            document.getElementById('searchPrintBtn').onclick = () => { closeSearch(); openPrintModal(); };
+        }
+
+        function updateHistSortOptions() {
+            const el = document.getElementById('histSortSymbol');
+            el.innerHTML = '';
+            if(masterData.tickers.length) {
+                masterData.tickers.forEach(sym => {
+                    const opt = document.createElement('option'); opt.value = sym; opt.textContent = sym;
+                    el.appendChild(opt);
+                });
+                el.value = masterData.tickers[0];
+            }
+            toggleHistSortVisibility();
+        }
+
+        function toggleHistSortVisibility() {
+            const val = document.getElementById('histSortMode').value;
+            document.getElementById('histSortSymbol').style.display = val.startsWith('price_') ? 'inline-block' : 'none';
+        }
+
+        function filterHistory(start, end) {
+            if (!start || !end) return masterData.history;
+            return masterData.history.filter(d => d.dateStr >= start && d.dateStr <= end);
+        }
+
+        function updateAll() {
+            const start = document.getElementById('dateStart').value;
+            const end = document.getElementById('dateEnd').value;
+            const filtered = filterHistory(start, end);
+            renderChart(filtered);
+            renderTable(filtered);
+            updateRanking();
+        }
+
+        function updateRanking() {
+            const start = document.getElementById('rankStartDate').value;
+            const end = document.getElementById('rankEndDate').value;
+            if(start && end) renderIndexRanking(start, end);
+        }
+
+        // ======================= RENDER CHART =======================
+        function renderChart(filteredHistory) {
+            if (!filteredHistory || filteredHistory.length === 0) return;
+            const labels = filteredHistory.map(d => d.dateStr);
+            const initialPrices = filteredHistory[0].prices;
+            const tickers = masterData.tickers;
+
+            const datasets = tickers.map((ticker, idx) => {
+                const colorDef = generateColumnColor(idx, tickers.length, false);
+                const strokeColor = colorDef.bg.replace('90%', '50%');
+                return {
+                    label: ticker,
+                    data: filteredHistory.map(d => {
+                        const init = initialPrices[ticker];
+                        const curr = d.prices[ticker];
+                        return init && init > 0 ? ((curr - init) / init) * 100 : 0;
+                    }),
+                    borderColor: strokeColor,
+                    backgroundColor: strokeColor,
+                    borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, tension: 0.1,
+                    hidden: idx >= 5
+                };
+            });
+
+            const ctx = document.getElementById('financeCompareChart').getContext('2d');
+            if (myChart) myChart.destroy();
+
+            myChart = new Chart(ctx, {
+                type: 'line',
+                data: { labels, datasets },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) label += ': ';
+                                    if (context.parsed.y !== null) label += (context.parsed.y >= 0 ? '+' : '') + context.parsed.y.toFixed(2) + '%';
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 12 } },
+                        y: {
+                            title: { display: true, text: 'Performa Kumulatif (%)', font: { weight: 'bold' } },
+                            grid: { color: '#eef0f2' },
+                            ticks: { callback: (value) => (value >= 0 ? '+' : '') + value + '%' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // ======================= RENDER TABLE =======================
+        function renderTable(filteredHistory) {
+            if (!filteredHistory || filteredHistory.length === 0) return;
+            const tickers = masterData.tickers;
+            const sortMode = document.getElementById('histSortMode').value;
+            const sortSymbol = document.getElementById('histSortSymbol').value;
+
+            // Sort data rows
+            let sortedData = [...filteredHistory];
+            if (sortMode === 'date_asc') sortedData.sort((a,b) => a.dateStr.localeCompare(b.dateStr));
+            else if (sortMode === 'date_desc') sortedData.sort((a,b) => b.dateStr.localeCompare(a.dateStr));
+            else if (sortMode.startsWith('price_') && sortSymbol && sortedData.length > 0) {
+                if (sortedData[0].prices.hasOwnProperty(sortSymbol)) {
+                    sortedData.sort((a,b) => {
+                        const pa = a.prices[sortSymbol] ?? -Infinity;
+                        const pb = b.prices[sortSymbol] ?? -Infinity;
+                        return sortMode === 'price_desc' ? pb - pa : pa - pb;
+                    });
+                }
+            }
+
+            const headerRow = document.getElementById('tableHeader');
+            const tbody = document.getElementById('tableBody');
+            
+            headerRow.innerHTML = '<th class="sticky-col">Tanggal</th>';
+            tickers.forEach((ticker, idx) => {
+                const th = document.createElement('th');
+                th.textContent = ticker;
+                const colWarna = generateColumnColor(idx, tickers.length, true);
+                th.style.backgroundColor = colWarna.bg.replace('82%', '40%');
+                th.style.color = '#ffffff';
+                headerRow.appendChild(th);
+            });
+
+            tbody.innerHTML = '';
+            sortedData.forEach((row, rowIndex) => {
+                const tr = document.createElement('tr');
+                const isEvenRow = (rowIndex % 2 === 0);
+                
+                const tdDate = document.createElement('td');
+                tdDate.textContent = row.dateStr;
+                tdDate.className = 'sticky-col';
+                tdDate.style.backgroundColor = isEvenRow ? '#f1f3f4' : '#ffffff';
+                tdDate.style.color = '#202124';
+                tr.appendChild(tdDate);
+
+                tickers.forEach((ticker, colIndex) => {
+                    const td = document.createElement('td');
+                    const price = row.prices[ticker];
+                    td.textContent = price > 0 ? 'Rp' + price.toLocaleString('id-ID') : '-';
+                    const warnaSel = generateColumnColor(colIndex, tickers.length, isEvenRow);
+                    td.style.backgroundColor = warnaSel.bg;
+                    td.style.color = warnaSel.text;
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
+        }
+
+        // ======================= RENDER RANKING (SEMUA SAHAM) =======================
+        function renderIndexRanking(startDate, endDate) {
+            const container = document.getElementById('rankingContainer');
+            const infoBar = document.getElementById('rankingInfoBar');
+
+            // Validasi Tanggal
+            if (new Date(startDate) > new Date(endDate)) {
+                container.innerHTML = '<div style="padding:20px; text-align:center; color:var(--text-secondary);"><i class="fas fa-exclamation-circle"></i> Tanggal mulai tidak boleh lebih besar dari tanggal akhir!</div>';
+                infoBar.style.display = 'none';
+                return;
+            }
+
+            let startIdx = masterData.history.findIndex(d => d.dateStr >= startDate);
+            let endIdx = masterData.history.findIndex(d => d.dateStr >= endDate);
+            
+            if (startIdx === -1) startIdx = 0;
+            if (endIdx === -1) endIdx = masterData.history.length - 1;
+            if (startIdx >= endIdx) {
+                container.innerHTML = '<div style="padding:20px; text-align:center; color:var(--text-secondary);"><i class="fas fa-exclamation-circle"></i> Periode data tidak ditemukan.</div>';
+                infoBar.style.display = 'none';
+                return;
+            }
+
+            let rankings = [];
+            let returnsList = [];
+            const symbolsToRank = masterData.tickers;
+
+            for (let sym of symbolsToRank) {
+                const first = masterData.history[startIdx].prices[sym];
+                const last = masterData.history[endIdx].prices[sym];
+                if (first !== null && first !== undefined && last !== null && last !== undefined && first > 0) {
+                    const change = ((last - first) / first) * 100;
+                    let upDays = 0, downDays = 0;
+                    let totalDailyReturn = 0, dailyCount = 0;
+                    for (let i = startIdx + 1; i <= endIdx; i++) {
+                        const prev = masterData.history[i-1].prices[sym];
+                        const curr = masterData.history[i].prices[sym];
+                        if (prev && curr && prev > 0) {
+                            const dailyRet = ((curr - prev) / prev) * 100;
+                            totalDailyReturn += dailyRet; dailyCount++;
+                            if (curr > prev) upDays++;
+                            else if (curr < prev) downDays++;
+                        }
+                    }
+                    const avgDailyReturn = dailyCount > 0 ? totalDailyReturn / dailyCount : 0;
+                    rankings.push({ sym, first, last, change, upDays, downDays, avgDailyReturn });
+                    returnsList.push(change);
+                }
+            }
+
+            if (rankings.length === 0) {
+                container.innerHTML = '<div style="padding:20px; text-align:center; color:var(--text-secondary);"><i class="fas fa-inbox"></i> Tidak cukup data</div>';
+                infoBar.style.display = 'none';
+                return;
+            }
+
+            rankings.sort((a, b) => b.change - a.change);
+
+            const upCount = rankings.filter(r => r.change > 0).length;
+            const downCount = rankings.filter(r => r.change < 0).length;
+            const avgReturn = returnsList.reduce((a,b) => a + b, 0) / returnsList.length;
+
+            document.getElementById('rankUpCount').textContent = upCount;
+            document.getElementById('rankDownCount').textContent = downCount;
+            document.getElementById('rankAvgReturn').textContent = `${avgReturn >= 0 ? '+' : ''}${avgReturn.toFixed(2)}%`;
+            infoBar.style.display = 'flex';
+
+            const colors = ['#fbbf24', '#94a3b8', '#b45309'];
+            let html = '';
+            
+            // LOOP TANPA POTONGAN (Semua Saham Tampil)
+            rankings.forEach((r, i) => {
+                const rank = i + 1;
+                const medal = rank <= 3 ? `<i class="fas fa-medal" style="color:${colors[rank-1]}"></i>` : `<i class="fas fa-landmark" style="color:var(--accent)"></i>`;
+                const changeClass = r.change >= 0 ? 'positive' : 'negative';
+                const arrow = r.change >= 0 ? 'fa-arrow-up' : 'fa-arrow-down';
+                const avgColor = r.avgDailyReturn >= 0 ? 'positive' : 'negative';
+                const dailyStatsHtml = `
+                    <div class="daily-stats">
+                        <div class="daily-stat-item"><i class="fas fa-arrow-up" style="color:var(--positive)"></i> Naik: <span class="daily-stat-value up-positive">${r.upDays}</span> hari</div>
+                        <div class="daily-stat-item"><i class="fas fa-arrow-down" style="color:var(--negative)"></i> Turun: <span class="daily-stat-value down-negative">${r.downDays}</span> hari</div>
+                        <div class="daily-stat-item"><i class="fas fa-chart-line"></i> AvgØ: <span class="daily-stat-value ${avgColor}">${r.avgDailyReturn >= 0 ? '+' : ''}${r.avgDailyReturn.toFixed(2)}%</span></div>
+                    </div>
+                `;
+
+                html += `
+                    <div class="ranking-card">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                            <span class="rank-number">RANK #${rank}</span>
+                            ${rank <= 3 ? `<span style="font-size:1.2rem;">${medal}</span>` : ''}
+                        </div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                            <span class="rank-symbol">${medal} ${r.sym}</span>
+                            <span class="rank-percent ${changeClass}">${r.change >= 0 ? '+' : ''}${r.change.toFixed(2)}%</span>
+                        </div>
+                        <div class="rank-date"><i class="fas fa-calendar-alt"></i> ${startDate} <i class="fas fa-arrow-right" style="margin:0 4px;"></i> ${endDate}</div>
+                        <div style="display:flex; justify-content:space-between; font-size:0.8rem; color:var(--text-secondary); margin-top:4px;">
+                            <span><i class="fas fa-tag"></i> ${formatRupiah(r.first)}</span> <span><i class="fas fa-tag"></i> ${formatRupiah(r.last)}</span>
+                        </div>
+                        <div class="rank-diff ${changeClass}" style="margin-top:6px;"><i class="fas ${arrow}"></i> Selisih: ${formatRupiah(r.last - r.first)}</div>
+                        ${dailyStatsHtml}
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        // ======================= SEARCH (NAVIGASI 3 TEMPAT) =======================
+        const STOCK_NAMES = {
+            "BBCA": "Bank Central Asia", "BMRI": "Bank Mandiri", "BBRI": "Bank Rakyat Indonesia",
+            "BBNI": "Bank Negara Indonesia", "ASII": "Astra International", "BRIS": "Bank BRISyariah",
+            "BBTN": "Bank Tabungan Negara", "ARTO": "Bank Jago", "BACA": "Bank Capital",
+            "BBHI": "Allo Bank Indonesia", "GOTO": "GoTo Gojek Tokopedia", "BBYB": "Bank Neo Commerce",
+            "BCAP": "Bank Capital Indonesia", "BDMN": "Bank Danamon", "BFIN": "BFI Finance",
+            "BGTG": "Bank Ganesha", "BINA": "Bank Ina Perdana", "BJBR": "Bank Jabar Banten",
+            "BJTM": "Bank Jatim", "BNGA": "Bank CIMB Niaga", "BNII": "Bank Maybank",
+            "BNLI": "Bank Permata", "BSIM": "Bank Sinarmas", "BTPN": "Bank SMBC Indonesia",
+            "BVIC": "Bank Victoria", "CFIN": "Clipan Finance", "DNET": "Indosat",
+            "INPC": "Bank Artha Graha", "MAYA": "Bank Mayapada", "MCOR": "Bank MNC",
+            "MEGA": "Bank Mega", "MREI": "Bank Mas", "NISP": "Bank OCBC NISP",
+            "PANS": "Bank Panin Sekuritas", "PNBN": "Bank Pan Indonesia", "PNIN": "Bank Panin",
+            "PNLF": "Panin Financial", "TLKM": "Telkom Indonesia", "SRTG": "Saratoga Investama",
+            "TRIM": "Trimegah Sekuritas", "VICO": "Victoria Investama", "BTPS": "Bank BTPN Syariah",
+            "TUGU": "Asuransi Tugu", "BBSI": "Krom Bank Indonesia", "AGRO": "Bank Raya",
+            "BEKS": "Bank Eksekutif", "COMPOSITE": "IHSG", "BBMD": "Bank Mestika"
+        };
+
+        const hamburgerBtn = document.getElementById('hamburgerBtn');
+        const searchOverlay = document.getElementById('searchOverlay');
+        const searchInput = document.getElementById('searchInput');
+        const searchResults = document.getElementById('searchResults');
+        const searchResultsContent = document.getElementById('searchResultsContent');
+        const searchNoResults = document.getElementById('searchNoResults');
+
+        hamburgerBtn.addEventListener('click', () => {
+            const isActive = searchOverlay.classList.contains('active');
+            if (isActive) closeSearch();
+            else openSearch();
+        });
+
+        function openSearch() {
+            searchOverlay.classList.add('active');
+            hamburgerBtn.classList.add('active');
+            hamburgerBtn.innerHTML = '<i class="fas fa-times"></i>';
+            searchInput.value = '';
+            searchInput.focus();
+            searchResults.classList.remove('active');
+        }
+        function closeSearch() {
+            searchOverlay.classList.remove('active');
+            hamburgerBtn.classList.remove('active');
+            hamburgerBtn.innerHTML = '<i class="fas fa-bars"></i>';
+        }
+        searchOverlay.addEventListener('click', (e) => { if (e.target === searchOverlay) closeSearch(); });
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeSearch(); closePrintModal(); } });
+
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value.trim().toUpperCase();
+            if (query.length < 1) { searchResults.classList.remove('active'); return; }
+            clearTimeout(searchInput._debounce);
+            searchInput._debounce = setTimeout(() => performSearch(query), 250);
+        });
+
+        function performSearch(query) {
+            let html = '', hasResults = false;
+            const matchedStocks = Object.keys(STOCK_NAMES).filter(sym => sym.includes(query) || STOCK_NAMES[sym].toUpperCase().includes(query));
+            const displayStocks = matchedStocks.slice(0, 5);
+
+            if (displayStocks.length > 0) {
+                hasResults = true;
+                html += `<div class="search-section-title" style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); margin: 16px 0 8px 0;"><i class="fas fa-landmark"></i> Pilih Tujuan Untuk Saham</div>`;
+                
+                displayStocks.forEach(sym => {
+                    html += `
+                        <div style="padding: 10px 0; border-bottom: 1px solid var(--border); margin-bottom: 8px;">
+                            <div style="font-weight: bold; margin-bottom: 4px; color: var(--accent);">${sym} - ${STOCK_NAMES[sym]}</div>
+                            <div style="display: flex; flex-direction: column; gap: 6px; padding-left: 10px;">
+                                <div class="search-result-item" onclick="navigateTo('sectionChart')" style="padding: 8px 12px; margin: 0;">
+                                    <i class="fas fa-chart-line"></i> <span class="sr-sym">📊 Grafik Compare</span>
+                                </div>
+                                <div class="search-result-item" onclick="navigateTo('sectionHistorical')" style="padding: 8px 12px; margin: 0;">
+                                    <i class="fas fa-history"></i> <span class="sr-sym">📋 Data Historis & Tabel</span>
+                                </div>
+                                <div class="search-result-item" onclick="navigateTo('sectionRanking')" style="padding: 8px 12px; margin: 0;">
+                                    <i class="fas fa-chart-simple"></i> <span class="sr-sym">🏆 Index Ranking</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            if (hasResults) {
+                searchResultsContent.innerHTML = html;
+                searchNoResults.style.display = 'none';
+                searchResults.classList.add('active');
+            } else {
+                searchResultsContent.innerHTML = '';
+                searchNoResults.style.display = 'block';
+                searchResults.classList.add('active');
+            }
+        }
+
+        window.navigateTo = function(sectionId) {
+            closeSearch();
+            const el = document.getElementById(sectionId);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.style.transition = 'box-shadow 0.3s';
+                el.style.boxShadow = '0 0 0 2px var(--accent), 0 0 15px var(--accent-glow)';
+                setTimeout(() => { el.style.boxShadow = ''; }, 3000);
+            }
+        };
+
+        // ======================= PRINT / EXPORT (CLEAN VERSION) =======================
+        function openPrintModal() {
+            const grid = document.getElementById('printStockGrid');
+            grid.innerHTML = '';
+            masterData.tickers.forEach(sym => {
+                const div = document.createElement('div');
+                div.className = 'print-stock-item';
+                div.style.cssText = 'display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; background: var(--card); border: 1px solid var(--border); cursor: pointer; font-size: 0.85rem;';
+                // Default semua tercentang
+                div.innerHTML = `<input type="checkbox" id="print_${sym}" value="${sym}" checked> <label for="print_${sym}">${sym}</label>`;
+                grid.appendChild(div);
+            });
+            document.getElementById('printOverlay').classList.add('active');
+        }
+        window.closePrintModal = function() { document.getElementById('printOverlay').classList.remove('active'); };
+        window.togglePrintSelectAll = function() {
+            const checked = document.getElementById('printSelectAll').checked;
+            document.querySelectorAll('#printStockGrid input').forEach(cb => cb.checked = checked);
+        };
+
+        window.executeExportImage = async function(format) {
+            const checkedStocks = [];
+            document.querySelectorAll('#printStockGrid input:checked').forEach(cb => checkedStocks.push(cb.value));
+            if (checkedStocks.length === 0) { alert('Pilih minimal 1 saham!'); return; }
+
+            const progressOverlay = document.getElementById('exportProgressOverlay');
+            const progressText = document.getElementById('exportProgressText');
+
+            // Hapus semua centangan konten, hanya pertahankan grafik
+            const originalDisplay = {};
+            const sections = { 'sectionChart': true, 'sectionHistorical': true, 'sectionRanking': true };
+            Object.keys(sections).forEach(id => {
+                const el = document.getElementById(id);
+                if (el) { originalDisplay[id] = el.style.display; el.style.display = sections[id] ? '' : 'none'; }
+            });
+
+            // Hide widgets and controls for cleaner export
+            document.querySelectorAll('.widget-bar, .controls-grid, .hamburger-btn, .dark-toggle, .print-overlay, .search-overlay').forEach(el => el.style.display = 'none');
+            document.getElementById('printOverlay').style.display = 'none';
+            
+            progressText.textContent = 'Merender tampilan...';
+            progressOverlay.classList.add('active');
+            await new Promise(r => setTimeout(r, 900));
+
+            try {
+                progressText.textContent = `Mengekspor ke ${format.toUpperCase()}...`;
+                const canvas = await html2canvas(document.getElementById('mainContainer'), {
+                    scale: 1.5, useCORS: true, allowTaint: true,
+                    backgroundColor: document.body.classList.contains('dark-mode') ? '#0b1120' : '#f1f5f9',
+                    scrollX: -window.scrollX, scrollY: -window.scrollY
+                });
+                progressText.textContent = 'Menyimpan file...';
+                await new Promise(r => setTimeout(r, 200));
+
+                const link = document.createElement('a');
+                link.download = `IDX_Dashboard_${new Date().toISOString().slice(0,10)}.${format}`;
+                link.href = canvas.toDataURL(format === 'jpg' ? 'image/jpeg' : 'image/png', format === 'jpg' ? 0.92 : 1.0);
+                link.click();
+            } catch(e) { alert('Gagal export: ' + e.message); }
+            progressOverlay.classList.remove('active');
+            Object.keys(sections).forEach(id => { const el = document.getElementById(id); if (el) el.style.display = originalDisplay[id] || ''; });
+            document.querySelectorAll('.widget-bar, .controls-grid, .hamburger-btn, .dark-toggle').forEach(el => el.style.display = '');
+            closePrintModal();
+        };
+
+        // ======================= INIT =======================
+        window.onload = loadDashboardData;
+    </script>
+</body>
+</html>
