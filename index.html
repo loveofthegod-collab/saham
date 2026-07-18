@@ -40,12 +40,16 @@
             const data = await response.json();
             
             const tickers = data.tickers;
-            const history = data.history.reverse(); 
+            
+            // PERBAIKAN: Ambil salinan array agar tidak merusak data chart dasar
+            const history = [...data.history].reverse(); 
 
+            // Render Header Tabel
             const thead = document.getElementById('tableHeader');
             thead.innerHTML = '<th>Tanggal</th>';
             tickers.forEach(t => thead.innerHTML += `<th>${t}</th>`);
 
+            // Render Body Tabel (Terbaru di atas)
             const tbody = document.getElementById('tableBody');
             history.forEach(row => {
                 let tr = document.createElement('tr');
@@ -61,6 +65,7 @@
                 tbody.appendChild(tr);
             });
 
+            // Render Grafik (Kronologis maju yang benar dari data asli)
             const chartData = [...data.history];
             const ctx = document.getElementById('compareChart').getContext('2d');
             const labels = chartData.map(d => d.dateStr);
