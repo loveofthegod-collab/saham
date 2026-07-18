@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Analisis Performa Saham - Google Finance Style</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #f8f9fa;
+            --panel-bg: #ffffff;
+            --text-main: #202124;
+            --border-color: #dadce0;
+            --primary-color: #1a73e8;
+        }
+
+        body {
+            font-family: 'Google Sans', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+            background: var(--panel-bg);
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 26px;
+            margin-bottom: 8px;
+            color: #1f1f1f;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #5f6368;
+            margin-bottom: 24px;
+            font-size: 14px;
+        }
+
+        /* Chart Section ala Google Finance */
+        .chart-card {
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 24px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 480px;
+            width: 100%;
+        }
+
+        /* Controls */
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .legend-info {
+            font-size: 13px;
+            color: #5f6368;
+            background: #e8f0fe;
+            padding: 6px 12px;
+            border-radius: 4px;
+            border: 1px solid #d2e3fc;
+        }
+
+        /* Tabel Wrapper */
+        .table-wrapper {
+            overflow-x: auto;
+            max-height: 600px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 13px;
+        }
+
+        /* Sticky Header */
+        thead th {
+            position: sticky;
+            top: 0;
+            background: #f1f3f4;
+            color: #202124;
+            font-weight: 600;
+            text-align: left;
+            padding: 12px 16px;
+            border-bottom: 2px solid var(--border-color);
+            z-index: 10;
+            white-space: nowrap;
+        }
+
+        tbody td {
+            padding: 10px 16px;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+            white-space: nowrap;
+            font-weight: 500;
+        }
+
+        /* Ticker column sticky jika di-scroll horizontal */
+        td.sticky-col, th.sticky-col {
+            position: sticky;
+            left: 0;
+            z-index: 5;
+            background-inherit: inherit;
+        }
+
+        th.sticky-col {
+            z-index: 11;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Dashboard Analisis Kinerja Saham Interaktif</h1>
+    <div class="subtitle">Grafik Relatif Performa (%) ala Google Finance & Tabel Heatmap Otomatis Terkontras</div>
+
+    <div class="chart-card">
+        <div class="toolbar">
+            <div class="legend-info">
+                💡 <b>Mode Google Finance:</b> Grafik menampilkan <b>perubahan persentase (%)</b> dari titik awal rentang waktu data agar perbandingan adil. Klik legenda di atas grafik untuk menyembunyikan/menampilkan saham.
+            </div>
+        </div>
+        <div class="chart-container">
+            <canvas id="financeCompareChart"></canvas>
+        </div>
+    </div>
+
+    <div class="table-wrapper">
+        <table id="stockTable">
+            <thead>
+                <tr id="tableHeader">
+                    </tr>
+            </thead>
+            <tbody id="tableBody">
+                </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    let myChart = null;
+
+    // 1. Generasi Warna Dinamis Bergradasi Lembut & Aman untuk Kontras Teks
+    // Menggunakan rotasi HSL (Hue, Saturation, Lightness) untuk mendapatkan 47+ variasi warna unik per kolom
+    function generateColumnColor(index, totalColumns, isEvenRow) {
+        // Melompati spektrum warna secara merata agar tidak monoton
+        const hue = (index * (360 / Math.min(totalColumns, 32))) % 360;
+        
+        // Atur kecerahan (Lightness) berdasarkan baris ganjil/genap (Zebra Striping tingkat baris di dalam kolom)
+        // Baris genap dibuat sedikit lebih terang/tua dibanding baris ganjil
+        let lightness = isEvenRow ? 82 : 90; 
+        
+        // Deteksi Khusus: Jika spektrum warna masuk kategori gelap atau terlalu pekat, 
+        // kita sesuaikan tingkat kecerahannya agar base teks hitam bawaan/terang tetap kontras luar biasa
+        return {
+            bg: `hsl(${hue}, 75%, ${lightness}%)`,
+            text: '#101010' // Base teks gelap aman untuk tingkat lightness 82-90%
+        };
+    }
+
+    // Fungsi pembantu menghitung perubahan persentase dari titik awal (Google Finance Style)
+    function calculatePercentageChange(currentPrice, initialPrice) {
+        if (!initialPrice || initialPrice === 0) return 0;
+        return ((currentPrice - initialPrice) / initialPrice) * 100;
+    }
+
+    async function loadDashboardData() {
+        try {
+            // Mengambil file json otomatis dari repositori/bot data.json
+            const response = await fetch('data.json');
+            const data = await response.json();
+
+            const tickers = data.tickers;
+            const history = data.history; // Array berisi { dateStr, prices: { BBRI: xxx, BMRI: yyy, ... } }
+
+            if (!history || history.length === 0) return;
+
+            // Ambil harga dasar awal (titik pertama data) untuk kalkulasi % Google Finance
+            const initialPrices = history[0].prices;
+
+            // ==========================================
+            // A. RENDER GRAFIK COMPUTE (GOOGLE FINANCE STYLE)
+            // ==========================================
+            const labels = history.map(d => d.dateStr);
+            
+            const datasets = tickers.map((ticker, idx) => {
+                const colorDef = generateColumnColor(idx, tickers.length, false);
+                // Ubah hsl string ke bentuk solid cerah khusus untuk garis grafik agar terlihat cantik
+                const strokeColor = colorDef.bg.replace('90%', '50%'); 
+
+                return {
+                    label: ticker,
+                    // Memetakan harga asli menjadi Persentase Perubahan dibanding hari pertama rentang data
+                    data: history.map(d => calculatePercentageChange(d.prices[ticker], initialPrices[ticker])),
+                    borderColor: strokeColor,
+                    backgroundColor: strokeColor,
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                    tension: 0.1,
+                    // Secara default kita tampilkan 5 saham pertama agar grafik bersih, sisanya bisa diaktifkan via legenda
+                    hidden: idx >= 5 
+                };
+            });
+
+            const ctx = document.getElementById('financeCompareChart').getContext('2d');
+            if (myChart) myChart.destroy();
+
+            myChart = new Chart(ctx, {
+                type: 'line',
+                data: { labels, datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                boxWidth: 12,
+                                font: { size: 11 }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) label += ': ';
+                                    if (context.parsed.y !== null) {
+                                        // Format tanda + atau - pada tooltip
+                                        label += (context.parsed.y >= 0 ? '+' : '') + context.parsed.y.toFixed(2) + '%';
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 12 }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Performa Kumulatif (%)',
+                                font: { weight: 'bold' }
+                            },
+                            grid: { color: '#eef0f2' },
+                            ticks: {
+                                callback: function(value) {
+                                    return (value >= 0 ? '+' : '') + value + '%';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // ==========================================
+            // B. RENDER TABEL WARNA-WARNI CERDAS & ZEBRA
+            // ==========================================
+            const headerRow = document.getElementById('tableHeader');
+            const tbody = document.getElementById('tableBody');
+            
+            headerRow.innerHTML = '';
+            tbody.innerHTML = '';
+
+            // 1. Render Headers
+            const thDate = document.createElement('th');
+            thDate.textContent = 'Tanggal';
+            thDate.className = 'sticky-col';
+            headerRow.appendChild(thDate);
+
+            tickers.forEach((ticker, idx) => {
+                const th = document.createElement('th');
+                th.textContent = ticker;
+                // Beri warna latar header yang elegan menyesuaikan rumpun warna kolomnya
+                const colWarna = generateColumnColor(idx, tickers.length, true);
+                th.style.backgroundColor = colWarna.bg.replace('82%', '40%'); 
+                th.style.color = '#ffffff'; // Teks header selalu putih solid agar kontras tinggi
+                headerRow.appendChild(th);
+            });
+
+            // 2. Render Rows (Urutan data terbaru di paling atas tabel)
+            const reverseHistory = [...history].reverse();
+            
+            reverseHistory.forEach((row, rowIndex) => {
+                const tr = document.createElement('tr');
+                const isEvenRow = (rowIndex % 2 === 0);
+
+                // Kolom Tanggal
+                const tdDate = document.createElement('td');
+                tdDate.textContent = row.dateStr;
+                tdDate.className = 'sticky-col';
+                // Dasar zebra striping abu-abu tipis untuk kolom tanggal
+                tdDate.style.backgroundColor = isEvenRow ? '#f1f3f4' : '#ffffff';
+                tdDate.style.color = '#202124';
+                tr.appendChild(tdDate);
+
+                // Kolom Harga Mata Uang/Saham
+                tickers.forEach((ticker, colIndex) => {
+                    const td = document.createElement('td');
+                    const price = row.prices[ticker];
+                    
+                    td.textContent = price > 0 ? 'Rp' + price.toLocaleString('id-ID') : '-';
+
+                    // Hitung warna sel secara dinamis berdasarkan kombinasi Kolom ke-X dan Baris ke-Y (Zebra Striping per Kolom!)
+                    const warnaSel = generateColumnColor(colIndex, tickers.length, isEvenRow);
+                    
+                    td.style.backgroundColor = warnaSel.bg;
+                    td.style.color = warnaSel.text;
+                    
+                    tr.appendChild(td);
+                });
+
+                tbody.appendChild(tr);
+            });
+
+        } catch (error) {
+            console.error(error);
+            document.querySelector('.container').innerHTML = `
+                <div style="text-align:center; padding: 40px;">
+                    <h2 style="color:#d93025;">Gagal Memuat Data Finansial</h2>
+                    <p>Pastikan alur bot GitHub Actions Anda telah sukses berjalan untuk memproduksi file <code>data.json</code> secara valid.</p>
+                </div>
+            `;
+        }
+    }
+
+    // Jalankan aplikasi saat windows siap
+    window.onload = loadDashboardData;
+</script>
+
+</body>
+</html>
