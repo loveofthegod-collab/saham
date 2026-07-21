@@ -2,51 +2,58 @@ name: Update Stock Data
 
 on:
   schedule:
-    - cron: '0 9 * * 1-5' # Berjalan otomatis Senin-Jumat jam 5 sore WIB
-  workflow_dispatch: # Tombol manual di halaman tab "Actions" GitHub
+    - cron: '0 9 * * 1-5'
+  workflow_dispatch:
 
 jobs:
   update-json:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    
+
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
 
-      - name: Setup Node.js v20
-        uses: actions/setup-node@v4
+      - name: Setup Node.js v24
+        uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: '24'
 
-      - name: Fetch Data from Yahoo Finance (Minimal 2 Tahun)
+      - name: Fetch Data from Yahoo Finance
         run: |
           node -e "
           const fs = require('fs');
-          const tickers = ['BBCA','BMRI','BBRI','BBNI','BRIS','BBTN','ARTO','BTPN','BNGA','BDMN','PNBN','MEGA','NISP','BTPS','BJBR','BJTM','BBYB','BANK','BINA','BSIM','AGRO','SDRA','BBKP','BACA','DNAR','NOBU','BABP','BVIC','PNBS','MCOR','MAYA','MASB','BMAS','BBHI','BGTG','AMAR','AGRS','BKSW','INPC','BBSI','BBMD','BEKS','BSWD','MCOR','LPPS','PANS','VINS''ASII','TLKM','GOTO','UNTR','INTP','SMGR','KLBF','ICBP','ANTM','EXCL'];
-          
+          const tickers = [
+            // Semua saham perbankan Indonesia (Sudah lengkap 46 bank + BANK)
+            'BBCA','BMRI','BBRI','BBNI','BRIS','BBTN','ARTO','BTPN','BNGA','BDMN',
+            'PNBN','MEGA','NISP','BTPS','BJBR','BJTM','BBYB','BANK','BINA','BSIM',
+            'AGRO','SDRA','BBKP','BACA','DNAR','NOBU','BABP','BVIC','PNBS','MAYA',
+            'MASB','BMAS','BBHI','BGTG','AMAR','AGRS','BKSW','INPC','BBSI','BBMD',
+            'BEKS','BSWD','MCOR','LPPS','PANS','VINS',
+            
+            // 10 saham populer paling ramai transaksi (non‑bank)
+            'ASII','TLKM','GOTO','UNTR','INTP','SMGR','KLBF','ICBP','ANTM','EXCL'
+          ];
+
           (async () => {
             let masterData = {};
             let allDates = new Set();
-            
-            console.log('Memulai sinkronisasi data 47 saham untuk periode 2 tahun...');
-            
+
+            console.log('Memulai sinkronisasi data 5 tahun untuk ' + tickers.length + ' saham...');
+
             for (const ticker of tickers) {
               try {
-                // PERBAIKAN UTAMA: range diubah menjadi 2y untuk menarik riwayat minimal 2 tahun
+                // Diubah ke range=5y untuk menarik history data selama 5 tahun
                 const res = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/' + ticker + '.JK?range=5y&interval=1d');
-                if (!res.ok) {
-                  console.log(ticker + ' skip (Status HTTP: ' + res.status + ')');
-                  continue;
-                }
+                if (!res.ok) continue;
                 const data = await res.json();
                 const result = data.chart?.result?.[0];
                 if (!result) continue;
-                
+
                 const timestamps = result.timestamp || [];
                 const closes = result.indicators?.quote?.[0]?.close || [];
-                
+
                 for (let i = 0; i < timestamps.length; i++) {
                   if (closes[i] !== null && closes[i] !== undefined) {
                     const dateStr = new Date(timestamps[i] * 1000).toISOString().split('T')[0];
@@ -55,21 +62,20 @@ jobs:
                     masterData[dateStr][ticker] = Math.round(closes[i]);
                   }
                 }
-                console.log(ticker + ' sukses diambil riwayatnya.');
+                console.log(ticker + ' sukses.');
               } catch (e) {
-                console.log('Gagal fetch ' + ticker + ' karena: ' + e.message);
+                console.log('Gagal fetch ' + ticker);
               }
-              // Jeda singkat agar tidak terkena rate limit dari server Yahoo
-              await new Promise(resolve => setTimeout(resolve, 150));
+              // Delay dinaikkan sedikit ke 200ms agar aman saat proses penarikan data 5 tahun
+              await new Promise(resolve => setTimeout(resolve, 200));
             }
-            
+
             let sortedDates = Array.from(allDates).sort();
             let lastPrices = {};
             tickers.forEach(t => lastPrices[t] = 0);
-            
+
             let finalHistory = [];
-            
-            // Taktik Forward-Fill antipeluru untuk menambal hari libur bursa / saham tidur
+
             sortedDates.forEach(dateStr => {
               let prices = {};
               tickers.forEach(ticker => {
@@ -82,9 +88,9 @@ jobs:
               });
               finalHistory.push({ dateStr, prices });
             });
-            
+
             fs.writeFileSync('data.json', JSON.stringify({ tickers, history: finalHistory }, null, 2));
-            console.log('data.json berhasil dibuat dengan total ' + finalHistory.length + ' baris data bursa.');
+            console.log('data.json berhasil dibuat dengan histori 5 tahun.');
           })();
           "
 
@@ -93,5 +99,5 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add data.json
-          git commit -m "Automated: Sinkronisasi data 47 saham perbankan 2 tahun" || exit 0
+          git commit -m "Automated: Sinkronisasi data 5 tahun untuk bank + 10 saham populer" || exit 0
           git push
