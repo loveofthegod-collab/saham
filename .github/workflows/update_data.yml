@@ -2,7 +2,7 @@ name: Update Stock Data
 
 on:
   schedule:
-    - cron: '0 10 * * 1-5' # Berjalan otomatis Senin-Jumat jam 5 sore WIB
+    - cron: '0 9 * * 1-5' # Berjalan otomatis Senin-Jumat jam 5 sore WIB
   workflow_dispatch: # Tombol manual di halaman tab "Actions" GitHub
 
 jobs:
@@ -24,7 +24,7 @@ jobs:
         run: |
           node -e "
           const fs = require('fs');
-          const tickers = ['BBCA','BMRI','BBRI','BBNI','BRIS','BBTN','ARTO','BTPN','BNGA','BDMN','PNBN','MEGA','NISP','BTPS','BJBR','BJTM','BBYB','BANK','BINA','BSIM','AGRO','SDRA','BBKP','BACA','DNAR','NOBU','BABP','BVIC','PNBS','MCOR','MAYA','MASB','BMAS','BBHI','BGTG','AMAR','AGRS','BKSW','INPC','BBSI','BBMD','BEKS','BSWD','MCOR','LPPS','PANS','VINS'];
+          const tickers = ['BBCA','BMRI','BBRI','BBNI','BRIS','BBTN','ARTO','BTPN','BNGA','BDMN','PNBN','MEGA','NISP','BTPS','BJBR','BJTM','BBYB','BANK','BINA','BSIM','AGRO','SDRA','BBKP','BACA','DNAR','NOBU','BABP','BVIC','PNBS','MCOR','MAYA','MASB','BMAS','BBHI','BGTG','AMAR','AGRS','BKSW','INPC','BBSI','BBMD','BEKS','BSWD','MCOR','LPPS','PANS','VINS''ASII','TLKM','GOTO','UNTR','INTP','SMGR','KLBF','ICBP','ANTM','EXCL'];
           
           (async () => {
             let masterData = {};
